@@ -1,0 +1,325 @@
+{% extends 'base.html' %}
+{% block title %}Admin Review & Mission Control{% endblock %}
+
+{% block content %}
+<section class="admin-header">
+  <div>
+    <span class="section-kicker">GREENPULSE CONTROL CENTRE</span>
+    <h1>Admin & <em>impact control.</em></h1>
+    <p>Verify submissions, publish new eco-missions, and drive sustainable campus momentum.</p>
+    <div class="admin-tabs">
+      <a href="#pending" class="tab-pill">📋 Submissions ({{ stats.pending }})</a>
+      <a href="#add-mission" class="tab-pill primary-pill">➕ Add New Mission</a>
+      <a href="#missions" class="tab-pill">🎯 Active Missions ({{ stats.missions }})</a>
+      <a href="#history" class="tab-pill">📜 Review History</a>
+    </div>
+  </div>
+  <span class="admin-badge">● ADMIN ACCESS</span>
+</section>
+
+<section class="admin-stats">
+  <div>
+    <span>Awaiting review</span>
+    <strong>{{ stats.pending }}</strong>
+  </div>
+  <div>
+    <span>Approved actions</span>
+    <strong>{{ stats.approved }}</strong>
+  </div>
+  <div>
+    <span>Active missions</span>
+    <strong>{{ stats.missions }}</strong>
+  </div>
+  <div>
+    <span>Rejected actions</span>
+    <strong>{{ stats.rejected }}</strong>
+  </div>
+</section>
+
+<!-- SECTION 1: PENDING SUBMISSIONS -->
+<section class="section admin-section" id="pending">
+  <div class="section-head">
+    <div>
+      <span class="section-kicker">NEEDS YOUR ATTENTION</span>
+      <h2>Pending submissions ({{ stats.pending }})</h2>
+      <p>Approve valid eco-actions to award member points and increase verified campus impact.</p>
+    </div>
+  </div>
+
+  {% if pending %}
+    <div class="review-grid">
+      {% for s in pending %}
+        <article class="review-card">
+          <div class="review-card-top">
+            <span class="status pending">Pending</span>
+            <span class="review-date">{{ s.created_at[:16].replace('T',' ') }}</span>
+          </div>
+          <h3>{{ s.emoji }} {{ s.title }}</h3>
+          <p class="review-by">Submitted by <strong>{{ s.user_name }}</strong> · {{ s.email }}</p>
+          <p class="review-details">{{ s.details }}</p>
+          {% if s.location %}
+            <p class="review-meta">⌖ <strong>Location:</strong> {{ s.location }}</p>
+          {% endif %}
+          {% if s.quantity and s.quantity > 0 %}
+            <p class="review-meta">📊 <strong>Reported impact:</strong> {{ s.quantity }} {{ s.unit }}</p>
+          {% endif %}
+          {% if s.photo %}
+            <div class="evidence-preview-wrap">
+              <a class="evidence-link" href="{{ url_for('uploaded_file', filename=s.photo) }}" target="_blank" rel="noopener">
+                📷 View photo evidence ↗
+              </a>
+            </div>
+          {% endif %}
+          <div class="review-footer">
+            <span class="points">✦ {{ s.points }} points if approved</span>
+            <form method="post" action="{{ url_for('review', submission_id=s.id) }}" class="review-actions">
+              <button class="btn approve" name="decision" value="approved" type="submit">✓ Approve</button>
+              <button class="btn reject" name="decision" value="rejected" type="submit">Reject</button>
+            </form>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state compact-empty">
+      <span>✓</span>
+      <h2>You're all caught up.</h2>
+      <p>New submissions will appear here as soon as members submit their environmental actions.</p>
+    </div>
+  {% endif %}
+</section>
+
+<!-- SECTION 2: ADD NEW MISSION -->
+<section class="section admin-section" id="add-mission">
+  <div class="section-head">
+    <div>
+      <span class="section-kicker">EXPAND CAMPUS PARTICIPATION</span>
+      <h2>Create a new <em>mission.</em></h2>
+      <p>Add new sustainability challenges for students and campus community members to take part in.</p>
+    </div>
+  </div>
+
+  <div class="mission-create-box">
+    <form method="post" action="{{ url_for('add_mission') }}" class="submission-form">
+      <div class="form-two">
+        <label>
+          Mission title <span class="required">*</span>
+          <input type="text" name="title" required maxlength="100" placeholder="e.g. Energy Conservation Champion">
+          <small class="field-help">Clear and inspiring name for the challenge</small>
+        </label>
+        <label>
+          Category <span class="required">*</span>
+          <input type="text" name="category" list="category-suggestions" required maxlength="50" placeholder="e.g. Energy, Cleanup, Tree care">
+          <datalist id="category-suggestions">
+            <option value="Cleanup">
+            <option value="Recycling">
+            <option value="Tree care">
+            <option value="Plastic reduction">
+            <option value="Energy conservation">
+            <option value="Water saving">
+            <option value="Sustainable transport">
+            <option value="Food waste reduction">
+            <option value="Community outreach">
+          </datalist>
+          <small class="field-help">Choose or type a new eco-category</small>
+        </label>
+      </div>
+
+      <div class="form-two">
+        <label>
+          Points awarded on approval <span class="required">*</span>
+          <input type="number" name="points" required min="1" max="1000" value="25">
+          <small class="field-help">Standard missions usually award 15–50 points</small>
+        </label>
+        <label>
+          Emoji icon <span class="required">*</span>
+          <input type="text" name="emoji" id="mission-emoji-field" required maxlength="10" value="🌱">
+          <small class="field-help">Pick from suggestions below or type your own</small>
+        </label>
+      </div>
+
+      <div class="emoji-picker-container">
+        <span class="emoji-picker-label">Quick emoji select:</span>
+        <div class="emoji-picker-presets">
+          <button type="button" class="emoji-preset-btn" onclick="selectEmoji('🧹')">🧹 Cleanup</button>
+          <button type="button" class="emoji-preset-btn" onclick="selectEmoji('♻️')">♻️ Recycling</button>
+          <button type="button" class="emoji-preset-btn" onclick="selectEmoji('🌱')">🌱 Seedling</button>
+          <button type="button" class="emoji-preset-btn" onclick="selectEmoji('🌳')">🌳 Tree</button>
+          <button type="button" class="emoji-preset-btn" onclick="selectEmoji('💡')">💡 Energy</button>
+          <button type="button" class="emoji-preset-btn" onclick="selectEmoji('🚲')">🚲 Bike</button>
+          <button type="button" class="emoji-preset-btn" onclick="selectEmoji('💧')">💧 Water</button>
+          <button type="button" class="emoji-preset-btn" onclick="selectEmoji('🍱')">🍱 Food</button>
+          <button type="button" class="emoji-preset-btn" onclick="selectEmoji('☀️')">☀️ Solar</button>
+          <button type="button" class="emoji-preset-btn" onclick="selectEmoji('🚯')">🚯 No litter</button>
+          <button type="button" class="emoji-preset-btn" onclick="selectEmoji('🔋')">🔋 Battery</button>
+          <button type="button" class="emoji-preset-btn" onclick="selectEmoji('🌍')">🌍 Planet</button>
+        </div>
+      </div>
+
+      <label>
+        Mission description & instructions <span class="required">*</span>
+        <textarea name="description" rows="3" required maxlength="1000" placeholder="Explain the specific action participants need to take and how to record their evidence..."></textarea>
+        <small class="field-help">Give clear instructions so participants know what is expected</small>
+      </label>
+
+      <button class="btn primary" type="submit">
+        + Publish Mission to Campus <span>↗</span>
+      </button>
+    </form>
+  </div>
+</section>
+
+<!-- SECTION 3: MANAGE ACTIVE MISSIONS -->
+<section class="section admin-section" id="missions">
+  <div class="section-head">
+    <div>
+      <span class="section-kicker">CHALLENGE CATALOGUE</span>
+      <h2>Active missions ({{ missions|length }})</h2>
+      <p>All eco-challenges currently visible to members on the platform.</p>
+    </div>
+  </div>
+
+  <div class="admin-missions-list">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Mission</th>
+            <th>Category</th>
+            <th>Points</th>
+            <th>Submissions</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in missions %}
+            <tr id="mission-{{ m.id }}">
+              <td>
+                <span class="mission-table-title">
+                  <span class="mission-table-emoji">{{ m.emoji }}</span>
+                  <div>
+                    <strong>{{ m.title }}</strong>
+                    <small class="table-detail">{{ m.description }}</small>
+                  </div>
+                </span>
+              </td>
+              <td><span class="category">{{ m.category }}</span></td>
+              <td><strong>✦ {{ m.points }} pts</strong></td>
+              <td>
+                <span class="action-count">{{ m.submission_count }} action(s)</span>
+              </td>
+              <td>
+                <div class="table-actions">
+                  <button type="button" class="btn ghost small" onclick="toggleEdit('edit-box-{{ m.id }}')">
+                    Edit
+                  </button>
+                  {% if m.submission_count == 0 %}
+                    <form method="post" action="{{ url_for('delete_mission', mission_id=m.id) }}" onsubmit="return confirm('Are you sure you want to remove the mission \'{{ m.title }}\'?');" style="display:inline;">
+                      <button type="submit" class="btn reject small">Delete</button>
+                    </form>
+                  {% else %}
+                    <button type="button" class="btn ghost small disabled-btn" title="Cannot delete mission with linked submissions" disabled>In Use</button>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            <!-- Inline Edit Drawer for Mission -->
+            <tr id="edit-box-{{ m.id }}" style="display:none;" class="edit-drawer-row">
+              <td colspan="5">
+                <form method="post" action="{{ url_for('edit_mission', mission_id=m.id) }}" class="inline-edit-form">
+                  <h4>Edit Mission: {{ m.title }}</h4>
+                  <div class="form-two">
+                    <label>
+                      Title
+                      <input type="text" name="title" value="{{ m.title }}" required maxlength="100">
+                    </label>
+                    <label>
+                      Category
+                      <input type="text" name="category" value="{{ m.category }}" required maxlength="50">
+                    </label>
+                  </div>
+                  <div class="form-two">
+                    <label>
+                      Points
+                      <input type="number" name="points" value="{{ m.points }}" required min="1" max="1000">
+                    </label>
+                    <label>
+                      Emoji
+                      <input type="text" name="emoji" value="{{ m.emoji }}" required maxlength="10">
+                    </label>
+                  </div>
+                  <label>
+                    Description
+                    <textarea name="description" rows="2" required maxlength="1000">{{ m.description }}</textarea>
+                  </label>
+                  <div class="inline-edit-buttons">
+                    <button class="btn primary small" type="submit">Save Changes</button>
+                    <button class="btn ghost small" type="button" onclick="toggleEdit('edit-box-{{ m.id }}')">Cancel</button>
+                  </div>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 4: REVIEW HISTORY -->
+<section class="section admin-section" id="history">
+  <div class="section-head">
+    <div>
+      <span class="section-kicker">RECENT DECISIONS</span>
+      <h2>Review history</h2>
+      <p>Log of recently approved and rejected member actions.</p>
+    </div>
+  </div>
+
+  {% if recent %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Mission / member</th>
+            <th>Decision</th>
+            <th>Date</th>
+            <th>Points</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in recent %}
+            <tr>
+              <td>
+                <strong>{{ s.emoji }} {{ s.title }}</strong>
+                <small class="table-detail">{{ s.user_name }}</small>
+              </td>
+              <td><span class="status {{ s.status }}">{{ s.status }}</span></td>
+              <td>{{ (s.reviewed_at or s.created_at)[:10] }}</td>
+              <td>{{ '+' ~ s.points if s.status=='approved' else '—' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-note">No reviews completed yet.</div>
+  {% endif %}
+</section>
+
+<script>
+  function selectEmoji(emoji) {
+    var field = document.getElementById('mission-emoji-field');
+    if (field) {
+      field.value = emoji;
+    }
+  }
+
+  function toggleEdit(id) {
+    var row = document.getElementById(id);
+    if (row) {
+      row.style.display = (row.style.display === 'none' || row.style.display === '') ? 'table-row' : 'none';
+    }
+  }
+</script>
+{% endblock %}

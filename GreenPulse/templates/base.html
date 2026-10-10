@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#123d2a">
+  <meta name="description" content="Turn everyday environmental actions into measurable community impact.">
+  <title>{% block title %}GreenPulse{% endblock %} · GreenPulse</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <nav class="nav">
+    <a class="brand" href="{{ url_for('home') }}">
+      <span class="brand-icon">✳</span> GreenPulse
+    </a>
+    <div class="navlinks">
+      <a href="{{ url_for('missions') }}">Missions</a>
+      <a href="{{ url_for('leaderboard') }}">Leaderboard</a>
+      {% if logged_in_user %}
+        <a href="{{ url_for('my_actions') }}">My actions</a>
+        {% if logged_in_user.role == 'admin' %}
+          <a href="{{ url_for('admin') }}">Admin Panel</a>
+          <a href="{{ url_for('admin') }}#add-mission" class="nav-admin-action">+ Add Mission</a>
+        {% endif %}
+        <span class="user-pill">{{ logged_in_user.name.split()[0] }}{% if logged_in_user.role == 'admin' %} <small class="admin-chip-mini">Admin</small>{% endif %}</span>
+        <a class="nav-cta light" href="{{ url_for('logout') }}">Log out</a>
+      {% else %}
+        <a href="{{ url_for('login') }}">Log in</a>
+        <a class="nav-cta" href="{{ url_for('register') }}">Join GreenPulse <span>↗</span></a>
+      {% endif %}
+    </div>
+    <button class="menu-toggle" onclick="document.querySelector('.navlinks').classList.toggle('open')" aria-label="Toggle menu">☰</button>
+  </nav>
+
+  <main>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-wrap">
+          {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    <div class="brand"><span class="brand-icon">✳</span> GreenPulse</div>
+    <p>Small actions. Shared responsibility. A greener tomorrow.</p>
+    <span>Built for community impact · Hackathon prototype</span>
+  </footer>
+</body>
+</html>

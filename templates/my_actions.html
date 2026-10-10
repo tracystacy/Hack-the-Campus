@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block title %}My actions{% endblock %}
+
+{% block content %}
+<section class="page-hero compact">
+  <span class="section-kicker">YOUR GREEN JOURNEY</span>
+  <h1>My <em>actions.</em></h1>
+  <p>Track your submissions and see which contributions have been verified by community administrators.</p>
+  <div class="personal-points">
+    <strong>{{ points }}</strong>
+    <span>verified points earned</span>
+  </div>
+  <a class="btn primary" href="{{ url_for('missions') }}">Find another mission ↗</a>
+</section>
+
+<section class="section">
+  {% if submissions %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Mission</th>
+            <th>Submitted</th>
+            <th>Details & Evidence</th>
+            <th>Status</th>
+            <th>Points</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in submissions %}
+            <tr>
+              <td>
+                <strong>{{ s.emoji or '🌱' }} {{ s.title }}</strong>
+                {% if s.location %}
+                  <small class="table-detail">⌖ {{ s.location }}</small>
+                {% endif %}
+              </td>
+              <td>{{ s.created_at[:10] }}</td>
+              <td>
+                <span class="submission-details-text">{{ s.details }}</span>
+                {% if s.quantity and s.quantity > 0 %}
+                  <small class="table-detail">Impact: {{ s.quantity }} {{ s.unit }}</small>
+                {% endif %}
+                {% if s.photo %}
+                  <a class="evidence-link" href="{{ url_for('uploaded_file', filename=s.photo) }}" target="_blank" rel="noopener">
+                    📷 View your photo ↗
+                  </a>
+                {% endif %}
+              </td>
+              <td><span class="status {{ s.status }}">{{ s.status }}</span></td>
+              <td>
+                {% if s.status == 'approved' %}
+                  <strong style="color:var(--green);">+{{ s.points }}</strong>
+                {% elif s.status == 'rejected' %}
+                  <span style="color:var(--muted);">Rejected</span>
+                {% else %}
+                  <span style="color:#91631a;">Pending</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <span>🌿</span>
+      <h2>Your first action starts here.</h2>
+      <p>Submit an environmental action and it will appear here for tracking.</p>
+      <a class="btn primary" href="{{ url_for('missions') }}">Browse missions</a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

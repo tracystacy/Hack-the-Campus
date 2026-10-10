@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}Eco missions{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+  <span class="section-kicker">TURN INTENTION INTO ACTION</span>
+  <h1>Small steps. <em>Big change.</em></h1>
+  <p>Choose a mission that fits your day. Submit what you did, and once it is reviewed, earn points for your contribution.</p>
+  {% if logged_in_user and logged_in_user.role == 'admin' %}
+    <div class="admin-missions-banner">
+      <span>👑 Administrator Mode: You have full permissions to add new missions and manage challenges.</span>
+      <a href="{{ url_for('admin') }}#add-mission" class="btn primary small">+ Add New Mission ↗</a>
+    </div>
+  {% endif %}
+</section>
+
+<section class="section">
+  <div class="mission-grid">
+    {% for m in missions %}
+      <article class="mission-card mission-card-large">
+        <div class="mission-top">
+          <span class="mission-emoji">{{ m.emoji }}</span>
+          <div class="mission-tags">
+            <span class="category">{{ m.category }}</span>
+            {% if m.id in submitted_missions %}
+              <span class="category submitted-tag">✓ Submitted</span>
+            {% endif %}
+          </div>
+        </div>
+        <h3>{{ m.title }}</h3>
+        <p>{{ m.description }}</p>
+        <div class="mission-bottom">
+          <span class="points">✦ {{ m.points }} points on approval</span>
+          <div class="card-action-links">
+            {% if logged_in_user and logged_in_user.role == 'admin' %}
+              <a href="{{ url_for('admin') }}#mission-{{ m.id }}" class="admin-chip" title="Manage in admin panel">Admin</a>
+            {% endif %}
+            <a href="{{ url_for('submit', mission_id=m.id) }}" class="round-arrow" aria-label="Submit action for {{ m.title }}">↗</a>
+          </div>
+        </div>
+      </article>
+    {% endfor %}
+  </div>
+
+  <div class="info-banner">
+    <span>ⓘ</span>
+    <p><strong>How points work:</strong> submissions start as pending. An administrator reviews each action, and only approved actions contribute to verified totals and the leaderboard.</p>
+  </div>
+</section>
+{% endblock %}
