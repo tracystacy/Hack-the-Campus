@@ -193,4 +193,20 @@
 }
 .evidence-preview-wrap {
   margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.photo-shield-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #ebf6e8;
+  color: #246a38;
+  border: 1px solid #c8e4c0;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
 }

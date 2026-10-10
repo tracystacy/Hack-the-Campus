@@ -1,9 +1,12 @@
+import io
 import os
 import sqlite3
 import secrets
+import hashlib
 from datetime import datetime
 from functools import wraps
 from urllib.parse import urlparse
+from PIL import Image
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from flask import (
@@ -16,6 +19,48 @@ DB_PATH = os.path.join(BASE_DIR, 'greenpulse.db')
 UPLOAD_DIR = os.path.join(BASE_DIR, 'uploads')
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
+
+def compute_image_hashes(img_bytes):
+    """
+    Validates image structure and computes:
+    1. SHA-256 for bit-for-bit duplicate detection.
+    2. Perceptual dHash (difference hash) for visual similarity detection
+       (catches re-compressed, re-encoded, or format-converted duplicates).
+    3. Blank/solid image check using channel variance.
+    Returns (sha256, dhash, is_solid).
+    """
+    try:
+        with Image.open(io.BytesIO(img_bytes)) as img:
+            img.verify()
+    except Exception:
+        return None, None, False
+
+    sha = hashlib.sha256(img_bytes).hexdigest()
+    dhash = None
+    is_solid = False
+    try:
+        with Image.open(io.BytesIO(img_bytes)) as img:
+            from PIL import ImageStat
+            stat = ImageStat.Stat(img)
+            if max(stat.stddev) < 2.0:
+                is_solid = True
+
+            gray = img.convert('L').resize((9, 8), Image.Resampling.LANCZOS)
+            bits = []
+            for y in range(8):
+                for x in range(8):
+                    bits.append(1 if gray.getpixel((x, y)) > gray.getpixel((x + 1, y)) else 0)
+            dhash = hex(int(''.join(map(str, bits)), 2))[2:].zfill(16)
+    except Exception:
+        pass
+    return sha, dhash, is_solid
+
+def hamming_distance(h1, h2):
+    """Calculates bitwise difference between two hex hash strings."""
+    try:
+        return bin(int(h1, 16) ^ int(h2, 16)).count('1')
+    except (ValueError, TypeError):
+        return 64
 
 app = Flask(__name__)
 # Keep secret key stable during development so restarts don't invalidate sessions
@@ -64,6 +109,8 @@ def init_db():
           quantity REAL,
           unit TEXT,
           photo TEXT,
+          photo_hash TEXT,
+          photo_dhash TEXT,
           status TEXT NOT NULL DEFAULT 'pending',
           created_at TEXT NOT NULL,
           reviewed_at TEXT,
@@ -73,6 +120,30 @@ def init_db():
           FOREIGN KEY(reviewed_by) REFERENCES users(id)
         );
         ''')
+
+        # Auto-migrate table columns if upgrading an existing database
+        col_rows = db.execute("PRAGMA table_info(submissions)").fetchall()
+        col_names = {row['name'] for row in col_rows}
+        if 'photo_hash' not in col_names:
+            db.execute('ALTER TABLE submissions ADD COLUMN photo_hash TEXT')
+        if 'photo_dhash' not in col_names:
+            db.execute('ALTER TABLE submissions ADD COLUMN photo_dhash TEXT')
+
+        # Backfill existing submissions that have photos on disk but no hash yet
+        rows_to_backfill = db.execute(
+            'SELECT id, photo FROM submissions WHERE photo IS NOT NULL AND (photo_hash IS NULL OR photo_dhash IS NULL)'
+        ).fetchall()
+        for row in rows_to_backfill:
+            p_path = os.path.join(UPLOAD_DIR, row['photo'])
+            if os.path.isfile(p_path):
+                try:
+                    with open(p_path, 'rb') as f:
+                        f_data = f.read()
+                    sha, dh, _ = compute_image_hashes(f_data)
+                    db.execute('UPDATE submissions SET photo_hash=?, photo_dhash=? WHERE id=?', (sha, dh, row['id']))
+                except Exception:
+                    pass
+
         if db.execute('SELECT COUNT(*) FROM missions').fetchone()[0] == 0:
             db.executemany(
                 'INSERT INTO missions(title, description, category, points, emoji) VALUES (?, ?, ?, ?, ?)',
@@ -217,25 +288,84 @@ def submit(mission_id):
             quantity = 0
         quantity = max(0, min(quantity, 1000000))
         photo_name = None
+        photo_hash = None
+        photo_dhash = None
         photo = request.files.get('photo')
+
+        form_data = {
+            'details': details,
+            'location': location,
+            'quantity': request.form.get('quantity', ''),
+            'unit': unit
+        }
 
         if not details:
             flash('Please describe the action you completed.', 'error')
-            return render_template('submit.html', mission=mission)
+            return render_template('submit.html', mission=mission, form_data=form_data)
 
         if photo and photo.filename:
             if not allowed_file(photo.filename):
                 flash('Photo must be JPG, JPEG, PNG, or WEBP format.', 'error')
-                return render_template('submit.html', mission=mission)
+                return render_template('submit.html', mission=mission, form_data=form_data)
+
+            photo_bytes = photo.read()
+            if not photo_bytes:
+                flash('The uploaded photo file appears to be empty.', 'error')
+                return render_template('submit.html', mission=mission, form_data=form_data)
+
+            photo_hash, photo_dhash, is_solid = compute_image_hashes(photo_bytes)
+            if not photo_hash:
+                flash('The uploaded file is not a valid image. Please upload a clear JPG, PNG, or WEBP photo.', 'error')
+                return render_template('submit.html', mission=mission, form_data=form_data)
+
+            if is_solid:
+                flash('Anti-cheating notice: The uploaded image appears to be a blank or solid single color. Please upload an authentic photo showing your environmental action.', 'error')
+                return render_template('submit.html', mission=mission, form_data=form_data)
+
+            # Anti-cheating verification against all existing submissions
+            with connect() as db:
+                # 1. Exact binary duplicate check (SHA-256)
+                exact_match = db.execute('''
+                    SELECT s.id, s.user_id, u.name
+                    FROM submissions s
+                    JOIN users u ON u.id = s.user_id
+                    WHERE s.photo_hash = ?
+                ''', (photo_hash,)).fetchone()
+
+                if exact_match:
+                    if exact_match['user_id'] == session['user_id']:
+                        flash('Anti-cheating notice: You have already submitted this photo for another action. Please take a fresh photo for each mission.', 'error')
+                    else:
+                        flash('Anti-cheating notice: This photo has already been submitted by another participant. Each submission requires your own unique evidence.', 'error')
+                    return render_template('submit.html', mission=mission, form_data=form_data)
+
+                # 2. Perceptual visual duplicate check (dHash - catches re-compressed or converted copies)
+                if photo_dhash:
+                    existing_hashes = db.execute('''
+                        SELECT s.id, s.user_id, s.photo_dhash, u.name
+                        FROM submissions s
+                        JOIN users u ON u.id = s.user_id
+                        WHERE s.photo_dhash IS NOT NULL
+                    ''').fetchall()
+
+                    for row in existing_hashes:
+                        if row['photo_dhash'] and hamming_distance(photo_dhash, row['photo_dhash']) <= 4:
+                            if row['user_id'] == session['user_id']:
+                                flash('Anti-cheating notice: This image appears visually identical to a photo you previously submitted. Please upload a new, unique photo.', 'error')
+                            else:
+                                flash('Anti-cheating notice: This image matches a photo already submitted by another participant. Duplicate images are rejected to maintain fair play.', 'error')
+                            return render_template('submit.html', mission=mission, form_data=form_data)
+
             clean_name = secure_filename(photo.filename) or 'evidence.jpg'
             photo_name = secrets.token_hex(8) + '_' + clean_name[:100]
-            photo.save(os.path.join(UPLOAD_DIR, photo_name))
+            with open(os.path.join(UPLOAD_DIR, photo_name), 'wb') as f:
+                f.write(photo_bytes)
 
         with connect() as db:
             db.execute(
-                '''INSERT INTO submissions(user_id, mission_id, details, location, quantity, unit, photo, status, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                (session['user_id'], mission_id, details, location, quantity, unit, photo_name, 'pending', datetime.now().isoformat(timespec='minutes'))
+                '''INSERT INTO submissions(user_id, mission_id, details, location, quantity, unit, photo, photo_hash, photo_dhash, status, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                (session['user_id'], mission_id, details, location, quantity, unit, photo_name, photo_hash, photo_dhash, 'pending', datetime.now().isoformat(timespec='minutes'))
             )
         flash('Action submitted for review! Points will be awarded once verified by an admin.', 'success')
         return redirect(url_for('my_actions'))

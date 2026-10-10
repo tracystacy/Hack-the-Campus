@@ -1,33 +1,52 @@
 # GreenPulse — Environmental Action Challenge
 
-A runnable Flask + SQLite hackathon prototype. Users register, browse missions, submit environmental actions for review, and earn points only after an administrator approves a submission.
+A runnable Flask + SQLite hackathon prototype for campus communities. Users register, browse eco-missions, submit environmental actions for review with optional photo evidence, and earn points after an administrator approves the submission.
 
-## Fastest Windows start
-1. Extract this ZIP to a folder such as `Downloads\GreenPulse`.
-2. Double-click `start.bat`.
-3. Wait for dependencies to install and Flask to start.
-4. Open http://127.0.0.1:5000 in your browser.
+## Quick Start
 
-If double-clicking does not work, open Command Prompt in this folder and run `start.bat`.
+### On Linux / macOS
+```bash
+./start.sh
+# Or directly with python:
+python3 app.py
+```
+Then open [http://127.0.0.1:5000](http://127.0.0.1:5000) in your browser.
 
-## Demo administrator (local demo only)
-- Email: `admin@greenpulse.local`
-- Password: `GreenPulse2026!`
+### On Windows
+Double-click `start.bat` or run:
+```cmd
+start.bat
+```
+Then open [http://127.0.0.1:5000](http://127.0.0.1:5000) in your browser.
 
-Log in using the account icon / Log in link, then open **Admin review**. Register a separate normal account to submit a test action. Approve it in the admin page; then check the dashboard and leaderboard.
+---
 
-## Main features
-- Responsive landing page and mission cards
-- User registration/login with password hashing
-- SQLite persistence
-- Environmental action submissions with optional JPG/PNG/WEBP evidence
-- Admin approval/rejection queue
-- Points and leaderboard based only on approved submissions
-- Dashboard totals calculated from approved submissions
+## Demo Accounts
 
-## Important demo notes
-- The app creates `greenpulse.db` automatically on first run.
-- All impact totals start at zero; use test submissions to demonstrate updates. Do not describe demo data as real-world impact.
-- The default admin credentials are for a local demo only. Change them and configure a strong secret before any public deployment.
-- Photo upload is limited to 4 MB and common image extensions. This is a hackathon prototype, not a production security review.
-- To stop the server, focus the terminal window and press `Ctrl+C`.
+### Administrator Account
+- **Email:** `admin@greenpulse.local`
+- **Password:** `GreenPulse2026!`
+
+Log in as the administrator to access the **Admin Panel**:
+- Review and approve/reject pending submissions.
+- **Add new eco-missions** with custom title, category, points, and emoji.
+- Edit or manage existing missions.
+- Monitor verified impact metrics and review history.
+
+### Participant / Member Account
+- Register a new account via the **Join GreenPulse** button (e.g. `jane@example.com` / `password123`).
+- Browse available missions and submit actions with details and optional photo evidence.
+- Track verified submissions and points on **My actions**.
+- Compete on the **Leaderboard** as actions are verified!
+
+---
+
+## Features
+
+- **Mission Creation & Management:** Administrators can create new challenges anytime (specifying title, category, points, and emojis) and manage active missions.
+- **Review & Verification Workflow:** Submissions require administrator review before points are awarded, ensuring genuine impact.
+- **Dynamic Community Impact Stats:** Verified kg of waste collected, tree care actions, total actions, and active community members.
+- **Live Leaderboard:** Points and rankings update automatically when submissions are approved.
+- **Anti-Cheating Photo Verification:** Automatic dual-layer duplicate detection using cryptographic SHA-256 hashes and perceptual visual difference hashing (dHash) to prevent participants from reusing photos or submitting identical images to curb cheating.
+- **Photo Evidence:** File uploads (JPG, PNG, WEBP up to 4 MB) stored securely for admin verification.
+- **Responsive UI:** Clean, modern, accessible design for both desktop and mobile screens.

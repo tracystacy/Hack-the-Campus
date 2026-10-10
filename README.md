@@ -47,5 +47,6 @@ Log in as the administrator to access the **Admin Panel**:
 - **Review & Verification Workflow:** Submissions require administrator review before points are awarded, ensuring genuine impact.
 - **Dynamic Community Impact Stats:** Verified kg of waste collected, tree care actions, total actions, and active community members.
 - **Live Leaderboard:** Points and rankings update automatically when submissions are approved.
+- **Anti-Cheating Photo Verification:** Automatic dual-layer duplicate detection using cryptographic SHA-256 hashes and perceptual visual difference hashing (dHash) to prevent participants from reusing photos or submitting identical images to curb cheating.
 - **Photo Evidence:** File uploads (JPG, PNG, WEBP up to 4 MB) stored securely for admin verification.
 - **Responsive UI:** Clean, modern, accessible design for both desktop and mobile screens.
